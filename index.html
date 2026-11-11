@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caja de Comentarios</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h2, h3 {
+            color: #333;
+            margin-top: 0;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        .btn {
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .btn-primary {
+            background-color: #007BFF;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .btn-warning {
+            background-color: #ffc107;
+            color: #333;
+            padding: 5px 10px;
+            font-size: 13px;
+        }
+        .btn-warning:hover {
+            background-color: #e0a800;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+            padding: 5px 10px;
+            font-size: 13px;
+            margin-left: 5px;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        .btn-cancel {
+            background-color: #6c757d;
+            color: white;
+            margin-left: 5px;
+        }
+        .btn-cancel:hover {
+            background-color: #5a6268;
+        }
+        .comment-card {
+            background: #fafafa;
+            border: 1px solid #eee;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            word-break: break-word;
+        }
+        .comment-text {
+            flex-grow: 1;
+            margin-right: 15px;
+        }
+        .actions {
+            display: flex;
+            white-space: nowrap;
+        }
+        .empty {
+            color: #777;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Caja de Comentarios</h2>
+                 
+       
+        <form id="comment-form">
+            <input type="hidden" id="comment-id" value="">
+            <textarea id="comment-content" rows="3" placeholder="Escribe tu comentario aquí..." required></textarea>
+            <div>
+                <button type="submit" id="submit-btn" class="btn btn-primary">Publicar Comentario</button>
+                <button type="button" id="cancel-btn" class="btn btn-cancel" style="display: none;">Cancelar</button>
+            </div>
+        </form>
+
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+        
+        <h3>Comentarios Recientes</h3>
+        <div id="empty-msg" class="empty">No hay comentarios ¡sé el primero en comentar!</div>
+        <div id="comments-container"></div>
+    </div>
+
+    <script>
+       
+        let comments = JSON.parse(localStorage.getItem('comments')) || [];
+        let counter = parseInt(localStorage.getItem('comment_counter')) || 1;
+        let editingId = null;
+
+        const form = document.getElementById('comment-form');
+        const commentIdInput = document.getElementById('comment-id');
+        const commentContentInput = document.getElementById('comment-content');
+        const submitBtn = document.getElementById('submit-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const commentsContainer = document.getElementById('comments-container');
+        const emptyMsg = document.getElementById('empty-msg');
+
+        function saveToLocalStorage() {
+            localStorage.setItem('comments', JSON.stringify(comments));
+            localStorage.setItem('comment_counter', counter.toString());
+        }
+
+        function render() {
+            commentsContainer.innerHTML = '';
+            
+            if (comments.length === 0) {
+                emptyMsg.style.display = 'block';
+            } else {
+                emptyMsg.style.display = 'none';
+                comments.forEach(c => {
+                    const card = document.createElement('div');
+                    card.className = 'comment-card';
+                    
+                    const span = document.createElement('span');
+                    span.className = 'comment-text';
+                    span.textContent = c.text;
+                    
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'actions';
+                    
+                    const editBtn = document.createElement('button');
+                    editBtn.className = 'btn btn-warning';
+                    editBtn.textContent = 'Editar';
+                    editBtn.onclick = () => startEdit(c.id);
+                    
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'btn btn-danger';
+                    deleteBtn.textContent = 'Eliminar';
+                    deleteBtn.onclick = () => deleteComment(c.id);
+                    
+                    actionsDiv.appendChild(editBtn);
+                    actionsDiv.appendChild(deleteBtn);
+                    card.appendChild(span);
+                    card.appendChild(actionsDiv);
+                    commentsContainer.appendChild(card);
+                });
+            }
+
+            if (editingId !== null) {
+                submitBtn.textContent = 'Actualizar Comentario';
+                cancelBtn.style.display = 'inline-block';
+            } else {
+                submitBtn.textContent = 'Publicar Comentario';
+                cancelBtn.style.display = 'none';
+            }
+        }
+
+        form.onsubmit = (e) => {
+            e.preventDefault();
+            const text = commentContentInput.value.trim();
+            if (!text) return;
+
+            if (editingId !== null) {
+                const comment = comments.find(c => c.id === editingId);
+                if (comment) comment.text = text;
+                editingId = null;
+            } else {
+                comments.push({ id: counter++, text: text });
+            }
+
+            saveToLocalStorage();
+            resetForm();
+            render();
+        };
+
+        function startEdit(id) {
+            const comment = comments.find(c => c.id === id);
+            if (comment) {
+                editingId = comment.id;
+                commentIdInput.value = comment.id;
+                commentContentInput.value = comment.text;
+                commentContentInput.focus();
+                render();
+            }
+        }
+
+        function deleteComment(id) {
+            comments = comments.filter(c => c.id !== id);
+            if (editingId === id) {
+                resetForm();
+            }
+            saveToLocalStorage();
+            render();
+        }
+
+        function resetForm() {
+            editingId = null;
+            commentContentInput.value = '';
+            commentIdInput.value = '';
+            render();
+        }
+
+        cancelBtn.onclick = resetForm;
+
+        render();
+    </script>
+</body>
+</html>
